@@ -15,6 +15,7 @@ class EchoQuicProtocol(QuicConnectionProtocol):
 
 
 async def run_quic_server():
+
     configuration = QuicConfiguration(is_client=False)
     configuration.load_cert_chain(certfile=Path("certificate.pem"), keyfile=Path("key.pem"))
 
@@ -26,7 +27,11 @@ async def run_quic_server():
     )
 
     # Keep the server running indefinitely
-    await asyncio.Event().wait()
+    try:
+        await asyncio.Event().wait()
+    finally:
+        server.close()
+        await server.close()
 
 
 asyncio.run(run_quic_server())

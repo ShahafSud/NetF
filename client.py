@@ -6,6 +6,7 @@ from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import HandshakeCompleted
 import sys
 
+
 class EchoQuicProtocol(QuicConnectionProtocol):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -15,9 +16,9 @@ class EchoQuicProtocol(QuicConnectionProtocol):
         if isinstance(event, HandshakeCompleted):
             # Handshake completed, now safe to send data
             self.start_time = time.time()  # Update start time
-            self._quic.send_ping()  # Sending a ping to measure RTT
+            self._quic.send_ping(uid=int(self.start_time * 1000))  # Sending a ping to measure RTT
 
-        elif event.packet_received:
+        elif hasattr(event, 'packet_received') and event.packet_received:
             # A packet (could be our ping response) is received
             end_time = time.time()
             if self.start_time:
@@ -25,16 +26,21 @@ class EchoQuicProtocol(QuicConnectionProtocol):
                 print(f"RTT measured: {rtt:.3f} seconds")
                 self.start_time = None  # Reset start time
 
+
 async def run_quic_client():
     configuration = QuicConfiguration(is_client=True)
     configuration.verify_mode = False  # For demo purposes only
 
     async with connect(
-        host='127.0.0.1',
-        port=int(sys.argv[1]),
-        configuration=configuration,
-        create_protocol=EchoQuicProtocol
-    ) as protocol:
-        await protocol.wait_closed()  # Wait for the connection to close
+            host='127.0.0.1',
+            port=int(sys.argv[1]),
+            configuration=configuration,
+            create_protocol=EchoQuicProtocol
+    ):
+        # No need to await anything here, connection will be closed when exiting the block
+        print("Client has been connected successfully to server in port " + sys.argv[1])
+        await asyncio.sleep(1000)
+        print("Done")
+
 
 asyncio.run(run_quic_client())

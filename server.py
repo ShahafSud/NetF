@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from aioquic.asyncio import serve
 from aioquic.asyncio.protocol import QuicConnectionProtocol
 from aioquic.quic.configuration import QuicConfiguration
@@ -15,7 +16,7 @@ class EchoQuicProtocol(QuicConnectionProtocol):
 
 async def run_quic_server():
     configuration = QuicConfiguration(is_client=False)
-    configuration.load_cert_chain(certfile="certificate.pem", keyfile="key.pem")
+    configuration.load_cert_chain(certfile=Path("certificate.pem"), keyfile=Path("key.pem"))
 
     server = await serve(
         host='127.0.0.1',

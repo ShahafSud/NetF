@@ -9,9 +9,22 @@ time_sleep = int(sys.argv[2]) * 0.001  # Convert input from milliseconds to seco
 
 
 class EchoQuicProtocol(QuicConnectionProtocol):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.quic_events = asyncio.Queue()
+
     async def quic_event_received(self, event):
         # Asynchronous sleep for the specified delay
         await asyncio.sleep(time_sleep)
+
+    async def quic_event_handler(self):
+        while True:
+            # We'll directly await quic_event_received here
+            await self.quic_event_received(await self.quic_events.get())
+
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        asyncio.ensure_future(self.quic_event_handler())
 
 
 async def run_quic_server():

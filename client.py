@@ -1,5 +1,6 @@
 import asyncio
 import time
+import tracemalloc
 from aioquic.asyncio import connect
 from aioquic.asyncio.protocol import QuicConnectionProtocol
 from aioquic.quic.configuration import QuicConfiguration
@@ -15,8 +16,9 @@ class EchoQuicProtocol(QuicConnectionProtocol):
     def quic_event_received(self, event):
         if isinstance(event, HandshakeCompleted):
             # Handshake completed, now safe to send data
+            print("Client has been connected successfully to server in port " + sys.argv[1])
             self.start_time = time.time()  # Update start time
-            self._quic.send_ping(uid=int(self.start_time * 1000))  # Sending a ping to measure RTT
+            # self._send_ping()
 
         elif hasattr(event, 'packet_received') and event.packet_received:
             # A packet (could be our ping response) is received
@@ -26,10 +28,14 @@ class EchoQuicProtocol(QuicConnectionProtocol):
                 print(f"RTT measured: {rtt:.3f} seconds")
                 self.start_time = None  # Reset start time
 
+    def _send_ping(self):
+        self._quic.send_ping(uid=int(self.start_time * 1000))
+
 
 async def run_quic_client():
     configuration = QuicConfiguration(is_client=True)
     configuration.verify_mode = False  # For demo purposes only
+    tracemalloc.start()
 
     async with connect(
             host='127.0.0.1',
@@ -38,7 +44,6 @@ async def run_quic_client():
             create_protocol=EchoQuicProtocol
     ):
         # No need to await anything here, connection will be closed when exiting the block
-        print("Client has been connected successfully to server in port " + sys.argv[1])
         await asyncio.sleep(1000)
         print("Done")
 

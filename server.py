@@ -20,18 +20,25 @@ class EchoQuicProtocol(QuicConnectionProtocol):
     async def quic_event_received(self, event):
         # Asynchronous sleep for the specified delay
         await asyncio.sleep(time_sleep)
+        # Handle the event
+        if isinstance(event, tuple):
+            stream_id, data = event
+            print(f"Received from client on stream {stream_id}: {data.decode()}")
 
     async def quic_event_handler(self):
         while True:
             # We'll directly await quic_event_received here
             await self.quic_event_received(await self.quic_events.get())
 
-    async def handle(self, event):
-        await self.quic_event_received(event)
-
     def connection_made(self, transport):
         super().connection_made(transport)
         asyncio.ensure_future(self.quic_event_handler())
+
+    def quic_stream_data_received(self, stream_id: int, data: bytes) -> None:
+        asyncio.ensure_future(self.quic_event_received((stream_id, data)))
+
+    def quic_connection_lost(self, exc: Exception) -> None:
+        print("Connection lost with client.")
 
 
 async def run_quic_server():

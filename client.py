@@ -18,18 +18,23 @@ class EchoQuicProtocol(QuicConnectionProtocol):
             # Handshake completed, now safe to send data
             print("Client has been connected successfully to server in port " + sys.argv[1])
             self.start_time = time.time()  # Update start time
-            # self._send_ping()
 
-        elif hasattr(event, 'packet_received') and event.packet_received:
-            # A packet (could be our ping response) is received
-            end_time = time.time()
-            if self.start_time:
-                rtt = end_time - self.start_time
-                print(f"RTT measured: {rtt:.3f} seconds")
-                self.start_time = None  # Reset start time
+    async def send_user_input(self):
+        while True:
+            user_input = input("Enter message to send to server (type 'quit' to exit): ")
+            if user_input.lower() == 'quit':
+                break
+            print("data has been sent.\n")
+            self._quic.send_stream_data(stream_id=0, data=user_input.encode())
 
-    def _send_ping(self):
-        self._quic.send_ping(uid=int(self.start_time * 1000))
+    
+    def quic_stream_data_received(stream_id: int, data: bytes) -> None:
+        print(f"Received from server on stream {stream_id}: {data.decode()}")
+
+    
+    def quic_connection_lost(exc: Exception) -> None:
+        print("Connection lost.")
+        asyncio.get_event_loop().stop()
 
 
 async def run_quic_client():
@@ -42,10 +47,8 @@ async def run_quic_client():
             port=int(sys.argv[1]),
             configuration=configuration,
             create_protocol=EchoQuicProtocol
-    ):
-        # No need to await anything here, connection will be closed when exiting the block
-        await asyncio.sleep(1000)
-        print("Done")
+    ) as protocol:
+        await protocol.send_user_input()
 
 
 asyncio.run(run_quic_client())

@@ -1,54 +1,45 @@
+# server.py
 import asyncio
-import time
 import tracemalloc
-from aioquic.asyncio import connect
-from aioquic.asyncio.protocol import QuicConnectionProtocol
+from pathlib import Path
+from aioquic.asyncio import serve
 from aioquic.quic.configuration import QuicConfiguration
-from aioquic.quic.events import HandshakeCompleted
-import sys
 
 
-class EchoQuicProtocol(QuicConnectionProtocol):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.start_time = None  # Record the time when data is sent
-
-    def quic_event_received(self, event):
-        if isinstance(event, HandshakeCompleted):
-            # Handshake completed, now safe to send data
-            print("Client has been connected successfully to server in port " + sys.argv[1])
-            self.start_time = time.time()  # Update start time
-
-    async def send_user_input(self):
-        while True:
-            user_input = input("Enter message to send to server (type 'quit' to exit): ")
-            if user_input.lower() == 'quit':
-                break
-            print("data has been sent.\n")
-            self._quic.send_stream_data(stream_id=0, data=user_input.encode())
-
-    
-    def quic_stream_data_received(stream_id: int, data: bytes) -> None:
-        print(f"Received from server on stream {stream_id}: {data.decode()}")
-
-    
-    def quic_connection_lost(exc: Exception) -> None:
-        print("Connection lost.")
-        asyncio.get_event_loop().stop()
+async def handle_stream(reader, writer):
+    print("New stream opened.")
+    data = await reader.read(1024)
+    while not reader.at_eof():
+        print(f"Received: {data.decode()}")
+        writer.write_eof()
+        data = await reader.read(1024)
+    print("Stream closed.")
 
 
-async def run_quic_client():
-    configuration = QuicConfiguration(is_client=True)
-    configuration.verify_mode = False  # For demo purposes only
+async def run_server(host, port):
+    configuration = QuicConfiguration(is_client=False)
+
+    configuration.load_cert_chain(certfile=Path("certificate.pem"), keyfile=Path("key.pem"))
+
+    def handle_stream_awaited(reader, writer):
+        asyncio.create_task(handle_stream(reader, writer))
+
+    await serve(host, port, configuration=configuration, stream_handler=handle_stream_awaited)
+
+
+def main():
     tracemalloc.start()
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(run_server('localhost', 4433))
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.close()
 
-    async with connect(
-            host='127.0.0.1',
-            port=int(sys.argv[1]),
-            configuration=configuration,
-            create_protocol=EchoQuicProtocol
-    ) as protocol:
-        await protocol.send_user_input()
+    tracemalloc.stop()
 
 
-asyncio.run(run_quic_client())
+if __name__ == "__main__":
+    main()

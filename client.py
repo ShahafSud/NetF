@@ -1,5 +1,7 @@
 # client.py
 import asyncio
+import sys
+import time
 import tracemalloc
 from aioquic.asyncio import connect
 from aioquic.quic.configuration import QuicConfiguration
@@ -17,10 +19,13 @@ async def run_client(host, port):
         print("Connected")
 
         while not reader.at_eof():
-            text = input("Message: ")
+            text = sys.argv[1]#input("Message: ")
+            Stime = time.time()
             writer.write(text.encode())
             print("Sending to server...", end="")
             await reader.read(1024)
+            Etime = time.time()
+            print("RTT was : " + str(Etime-Stime))
 
         print("done")
         print("Sending eof...", end="")

@@ -1,16 +1,16 @@
 # server.py
 import asyncio
+import time
 import tracemalloc
 from pathlib import Path
 from aioquic.asyncio import serve
 from aioquic.quic.configuration import QuicConfiguration
-
-
 async def handle_stream(reader, writer):
     print("New stream opened.")
     data = await reader.read(1024)
     while not reader.at_eof():
-        print(f"Received: {data.decode()}")
+        print(f"Received instruction to wait: {data.decode()} Mili-Sec.")
+        time.sleep(int(data.decode())*0.001)
         writer.write_eof()
         data = await reader.read(1024)
     print("Stream closed.")

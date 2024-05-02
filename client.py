@@ -1,10 +1,84 @@
-# client.py
 import asyncio
 import sys
 import time
 import tracemalloc
+import json
 from aioquic.asyncio import connect
 from aioquic.quic.configuration import QuicConfiguration
+
+FILE_PATH = "random_file.txt"
+BUFFER_SIZE = 1024
+
+time_to_wait = sys.argv[1]
+
+
+def create_json_packet(data, serial_number):
+    """
+    Create a JSON packet with specified data and packet size.
+    """
+    packet = {
+        "serial_number": serial_number,
+        "size": len(data) + packet_overhead(),  # Adjust size to include overhead
+        "sleep": time_to_wait,
+        "data": data
+    }
+    return json.dumps(packet)
+
+
+def packet_overhead():
+    """
+    Calculate the overhead of the JSON packet.
+    """
+    return len(json.dumps({"serial_number": 0, "size": BUFFER_SIZE, "sleep": time_to_wait, "data": ""}))
+
+
+def divide_file_into_packets():
+    packets = []
+    count = 0
+    with open(FILE_PATH, 'r') as file:
+        while True:
+            data = file.read(BUFFER_SIZE - packet_overhead())
+            if not data:
+                break  # Reached end of file
+            packet = create_json_packet(data, count)
+            packets.append(packet)
+            count += 1
+    return packets
+
+
+async def send_file_loop(reader, writer):
+    data_packets = divide_file_into_packets()
+    rtt_list = []
+
+    for packet in data_packets:
+        start_time = time.time()
+        await send_packet(writer, reader, packet)
+        end_time = time.time()
+        rtt_list.append(end_time - start_time)
+
+    print("[FILE SENT SUCCESSFULLY]")
+    print("Sending eof to server...", end="")
+    writer.write_eof()
+    await reader.read(BUFFER_SIZE)
+
+    return rtt_list
+
+
+async def send_packet(writer, reader, packet):
+    packet_size = len(packet)
+    offset = 0
+
+    while offset < packet_size:
+        end_offset = min(offset + BUFFER_SIZE, packet_size)
+        packet_part = packet[offset:end_offset]
+        print(packet_part)
+        writer.write(packet_part.encode("utf-8"))  # Encode chunk to bytes before sending
+        await writer.drain()
+        offset = end_offset
+
+    ack = await reader.read(BUFFER_SIZE)
+    while ack.decode("utf-8") != "ack":
+        ack = await reader.read(BUFFER_SIZE)
 
 
 async def run_client(host, port):
@@ -18,21 +92,12 @@ async def run_client(host, port):
         reader, writer = await protocol.create_stream()
         print("Connected")
 
-        while not reader.at_eof():
-            text = sys.argv[1]#input("Message: ")
-            Stime = time.time()
-            writer.write(text.encode())
-            print("Sending to server...", end="")
-            await reader.read(1024)
-            Etime = time.time()
-            print("RTT was : " + str(Etime-Stime))
+        RTT_list = await send_file_loop(reader, writer)
 
-        print("done")
-        print("Sending eof...", end="")
-        writer.write_eof()
         protocol.close()
         await protocol.wait_closed()
-        print("done")
+
+    print("\n" + str(len(RTT_list)))
 
 
 def main():

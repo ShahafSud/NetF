@@ -1,72 +1,48 @@
 import asyncio
 import sys
 import tracemalloc
-import json
 import time
 from aioquic.asyncio import connect
 from aioquic.quic.configuration import QuicConfiguration
 
 FILE_PATH = "random_file.txt"
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 4096
 
 # Adjust BUFFER_SIZE to account for QUIC packet overhead
-QUIC_PACKET_OVERHEAD = 20  # Adjust this value according to your QUIC implementation
+QUIC_PACKET_OVERHEAD = 30  # Adjust this value according to your QUIC implementation
 
 time_to_wait = sys.argv[1]
 
 
-def create_json_packet(data, serial_number):
-    """
-    Create a JSON packet with specified data and serial number.
-    """
-    packet = {
-        "serial_number": serial_number,
-        "data": data
-    }
-    json_packet = json.dumps(packet)
-    return json_packet
-
-
-def divide_file_into_packets():
-    packets = []
-    with open(FILE_PATH, 'r') as file:
+def divide_file_into_chunks():
+    chunks = []
+    with open(FILE_PATH, 'rb') as file:
         while True:
             data = file.read(BUFFER_SIZE - QUIC_PACKET_OVERHEAD)  # Adjust buffer size
             if not data:
                 break  # Reached end of file
-            packet = create_json_packet(data, len(packets))
-            packets.append(packet)
-    return packets
+            chunks.append(data)
+    return chunks
 
 
-async def send_file_loop(reader, writer):
-    data_packets = divide_file_into_packets()
+async def send_chunks(reader, writer):
+    chunks = divide_file_into_chunks()
     rtt_list = []
 
-    for packet in data_packets:
+    for chunk in chunks:
         start_time = time.time()
-        await send_packet(writer, reader, packet)
+        writer.write(chunk)
+        await writer.drain()
         end_time = time.time()
         rtt_list.append(end_time - start_time)
 
     print("[FILE SENT SUCCESSFULLY]")
     print("Sending eof to server...", end="")
     writer.write_eof()
+    await writer.drain()
     await reader.read(BUFFER_SIZE)
 
     return rtt_list
-
-
-async def send_packet(writer, reader, packet):
-    packet_size = len(packet)
-    offset = 0
-
-    while offset < packet_size:
-        end_offset = min(offset + BUFFER_SIZE, packet_size)
-        packet_part = packet[offset:end_offset]
-        writer.write(packet_part.encode("utf-8"))  # Encode chunk to bytes before sending
-        await writer.drain()
-        offset = end_offset
 
 
 async def run_client(host, port):
@@ -80,7 +56,7 @@ async def run_client(host, port):
         reader, writer = await protocol.create_stream()
         print("Connected")
 
-        RTT_list = await send_file_loop(reader, writer)
+        RTT_list = await send_chunks(reader, writer)
 
         protocol.close()
         await protocol.wait_closed()

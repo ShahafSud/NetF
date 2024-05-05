@@ -1,48 +1,41 @@
 import asyncio
 import sys
-import time
 import tracemalloc
 import json
+import time
 from aioquic.asyncio import connect
 from aioquic.quic.configuration import QuicConfiguration
 
 FILE_PATH = "random_file.txt"
 BUFFER_SIZE = 1024
 
+# Adjust BUFFER_SIZE to account for QUIC packet overhead
+QUIC_PACKET_OVERHEAD = 20  # Adjust this value according to your QUIC implementation
+
 time_to_wait = sys.argv[1]
 
 
 def create_json_packet(data, serial_number):
     """
-    Create a JSON packet with specified data and packet size.
+    Create a JSON packet with specified data and serial number.
     """
     packet = {
         "serial_number": serial_number,
-        "size": len(data) + packet_overhead(),  # Adjust size to include overhead
-        "sleep": time_to_wait,
         "data": data
     }
-    return json.dumps(packet)
-
-
-def packet_overhead():
-    """
-    Calculate the overhead of the JSON packet.
-    """
-    return len(json.dumps({"serial_number": 0, "size": BUFFER_SIZE, "sleep": time_to_wait, "data": ""}))
+    json_packet = json.dumps(packet)
+    return json_packet
 
 
 def divide_file_into_packets():
     packets = []
-    count = 0
     with open(FILE_PATH, 'r') as file:
         while True:
-            data = file.read(BUFFER_SIZE - packet_overhead())
+            data = file.read(BUFFER_SIZE - QUIC_PACKET_OVERHEAD)  # Adjust buffer size
             if not data:
                 break  # Reached end of file
-            packet = create_json_packet(data, count)
+            packet = create_json_packet(data, len(packets))
             packets.append(packet)
-            count += 1
     return packets
 
 
@@ -71,14 +64,9 @@ async def send_packet(writer, reader, packet):
     while offset < packet_size:
         end_offset = min(offset + BUFFER_SIZE, packet_size)
         packet_part = packet[offset:end_offset]
-        print(packet_part)
         writer.write(packet_part.encode("utf-8"))  # Encode chunk to bytes before sending
         await writer.drain()
         offset = end_offset
-
-    ack = await reader.read(BUFFER_SIZE)
-    while ack.decode("utf-8") != "ack":
-        ack = await reader.read(BUFFER_SIZE)
 
 
 async def run_client(host, port):

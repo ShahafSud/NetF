@@ -14,7 +14,7 @@ def write_chunks_to_file(packets):
         # Open the file in write mode
         with open(FILE_PATH, 'w') as file:
             # Write each chunk to the file
-            for key in range(len(packets.keys())):
+            for key in range(len(packets)):
                 file.write(packets[key])
         print("File created successfully.")
     except IOError as e:
@@ -25,39 +25,41 @@ async def close_client(writer, packets):
     print("Sending eof to client...")
     writer.write_eof()
     await writer.drain()
-    """
-    print("Chunks received:")
-    for key in range(len(packets.keys())):
-        print(f"[CHUNK {key}] | {packets[key]}\n")
-    """
     print("Stream closed.")
 
     write_chunks_to_file(packets)
 
 
-async def read_packet(reader, data_json):
-    data_json = data_json.decode('utf-8')
-    packet_size = len(data_json)
+async def receive_full_packet(reader):
+    packet_data = b""
+    packet_size = 0
 
-    while packet_size < BUFFER_SIZE:
-        data_remains = BUFFER_SIZE - packet_size
+    while True:
+        data_chunk = await reader.read(BUFFER_SIZE - packet_size)
+        if not data_chunk:
+            # End of stream reached
+            return None if packet_size == 0 else packet_data  # Return None if no data received, otherwise return received data
 
-        additional_data = await reader.read(data_remains)
-        print("additional data: " + str(additional_data.decode('utf-8')))
-        data_json += additional_data.decode('utf-8')
-        packet_size = len(data_json)
+        packet_data += data_chunk
+        packet_size = len(packet_data)
+
+        if packet_size >= BUFFER_SIZE:
+            # Received packet of size equal to or greater than BUFFER_SIZE
+            return packet_data
+
+
+async def decode_json_packet(reader):
+    packet_data = await receive_full_packet(reader)
+    if packet_data is None:
+        return -1, "", "break"
 
     try:
-        print(f"Complete data length: {packet_size}")
-        print(f"Complete data: {data_json}")
+        data_json = packet_data.decode('utf-8')
         data = json.loads(data_json)
-        print(data)
         serial_num = data["serial_number"]
-        packet_size = data["size"]
-        # time_to_wait = data["sleep"]
         packet_data = data["data"]
 
-        if packet_size < BUFFER_SIZE:
+        if len(packet_data) < BUFFER_SIZE:
             return serial_num, packet_data, "break"
 
         return serial_num, packet_data, "continue"
@@ -71,17 +73,9 @@ async def handle_stream(reader, writer):
     packets = dict()
     print("New stream opened.")
     while True:
-        data_json = await reader.read(BUFFER_SIZE)
-        if not data_json:
-            break  # If no data is received, exit the loop
-        # print(data_json.decode("utf-8") + "\n")
-
-        serial_num, data, command = await read_packet(reader, data_json)
+        serial_num, data, command = await decode_json_packet(reader)
 
         if serial_num != -1:
-            ack = "ack".encode("utf-8")
-            writer.write(ack)
-
             packets[serial_num] = data
 
         if command == "break":
@@ -111,8 +105,7 @@ def main():
         pass
     finally:
         loop.close()
-
-    tracemalloc.stop()
+        tracemalloc.stop()
 
 
 if __name__ == "__main__":

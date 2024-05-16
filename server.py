@@ -1,13 +1,13 @@
 import asyncio
+import time
 import tracemalloc
 from pathlib import Path
 from aioquic.asyncio import serve
 from aioquic.quic.configuration import QuicConfiguration
 
+time_to_wait = 0
 FILE_PATH = "received_file.txt"
 BUFFER_SIZE = 4096
-
-
 async def write_chunks_to_file(packets):
     try:
         # Open the file in write mode
@@ -35,6 +35,8 @@ async def handle_stream(reader, writer):
     try:
         while True:
             data_chunk = await reader.read(BUFFER_SIZE)
+            time.sleep(time_to_wait)
+            writer.write(data_chunk)
             if not data_chunk:
                 # End of stream reached
                 break
@@ -54,11 +56,13 @@ async def run_server(host, port):
     await serve(host, port, configuration=configuration, stream_handler=handle_stream_awaited)
 
 
-def main():
+def main(port, tts):
+    global time_to_wait
+    time_to_wait = int(tts)/1000
     tracemalloc.start()
     loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(run_server('localhost', 4433))
+        loop.run_until_complete(run_server('localhost', port))
         loop.run_forever()
     except KeyboardInterrupt:
         pass

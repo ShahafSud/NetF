@@ -12,9 +12,9 @@ plt.plot(RTTs['RTT'], color='blue', label='RTT')
 plt.plot(RTTs['Smoothed RTT'], color='red', label='Smoothed RTT')
 
 # Add labels and title
-plt.xlabel('Time')
+plt.xlabel('Packets')
 plt.ylabel('RTT value')
-plt.title('RTT across time')
+plt.title('RTT across time - ' + sys.argv[1])
 
 # Add legend
 plt.legend()

@@ -1,4 +1,5 @@
 import asyncio
+import random
 import sys
 import time
 import tracemalloc
@@ -6,7 +7,6 @@ from pathlib import Path
 from aioquic.asyncio import serve
 from aioquic.quic.configuration import QuicConfiguration
 
-time_to_wait = int(sys.argv[1])/1000
 FILE_PATH = "received_file.txt"
 BUFFER_SIZE = 4096
 async def write_chunks_to_file(packets):
@@ -36,6 +36,9 @@ async def handle_stream(reader, writer):
     try:
         while True:
             data_chunk = await reader.read(BUFFER_SIZE)
+            time_to_wait = random.randint(0, 2)
+            if(time_to_wait<0.2):
+                continue  # drop the packet
             time.sleep(time_to_wait)
             writer.write(data_chunk)
             if not data_chunk:

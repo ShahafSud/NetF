@@ -3,12 +3,12 @@ import tracemalloc
 from aioquic.asyncio import connect, QuicConnectionProtocol
 from aioquic.quic.configuration import QuicConfiguration
 import pandas as pd
-
+import sys
 FILE_PATH = "random_file.txt"
 BUFFER_SIZE = 4096
 # Adjust BUFFER_SIZE to account for QUIC packet overhead
 QUIC_PACKET_OVERHEAD = 30  # Adjust this value according to your QUIC implementation
-TimeToWait = ""
+TimeToWait = sys.argv[1]
 
 
 
@@ -31,7 +31,6 @@ class CustomQuicConnectionProtocol(QuicConnectionProtocol):  # a decorator over 
         chunks = divide_file_into_chunks()
 
         initial_rtt, initial_smoothed_rtt = self.log_rtt_metrics()
-        print(f"Initial RTT: {initial_rtt}, Initial Smoothed RTT: {initial_smoothed_rtt}")
 
         for chunk in chunks:
             writer.write(chunk)
@@ -76,10 +75,8 @@ async def run_client(host, port):
 
 
 
-def main(port, tts):
-    global TimeToWait
-    TimeToWait = tts
-    asyncio.run(run_client('localhost', port))
+def main():
+    asyncio.run(run_client('localhost', 4433))
     tracemalloc.stop()
 
 

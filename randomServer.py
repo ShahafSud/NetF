@@ -37,8 +37,6 @@ async def handle_stream(reader, writer):
         while True:
             data_chunk = await reader.read(BUFFER_SIZE)
             time_to_wait = random.randint(0, 1)/10
-            if(time_to_wait<0.02):
-                continue  # drop the packet
             time.sleep(time_to_wait)
             writer.write(data_chunk)
             if not data_chunk:

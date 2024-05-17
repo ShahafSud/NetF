@@ -36,6 +36,7 @@ The project aims to demonstrate file transfer over a QUIC connection, a modern t
 .
 ├── client.py
 ├── server.py
+├── randomServer.py
 ├── plotting.py
 ├── random_file.txt
 ├── certificate.pem
@@ -47,7 +48,8 @@ The project aims to demonstrate file transfer over a QUIC connection, a modern t
 
 
 - `client.py`: Sends a file to the server and logs RTT metrics.
-- `server.py`: Receives the file from the client.
+- `server.py`: Receives the file from the client, waits a given time and returns it to the client.
+- `randomServer.py`: Receives the file from the client, waits a random time for each chunk and returns it to the client.
 - `plotting.py`: Plots the RTT metrics.
 - `random_file.txt`: Example file to be transferred.
 - `certificate.pem` and `key.pem`: SSL/TLS certificates for secure connection.
@@ -69,37 +71,46 @@ You can install the required Python packages using pip:
 pip install aioquic pandas matplotlib
 ```
 
+Note, to compleat the setup run:
+```sh
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out certificate.pem -days 365 -nodes -subj "/CN=localhost"
+```
+
 ## Usage
 
 ### Server
 Start the QUIC server with a specified delay (in milliseconds) to simulate network conditions:
 ```sh
-python server.py <TimeToWait>
+python3 server.py <TimeToWait>
 ```
 #### Example:
 ```sh
-python server.py 100  # Introduces a 100ms delay
+python3 server.py 100  # Introduces a 100ms delay
+```
+Or start the random server for random TimeToWait values (0 to 100 ms) with:
+```sh
+python3 randomServer.py
 ```
 
 ### Client
 Start the QUIC client with the same delay parameter used by the server:
 ```sh
-python client.py <TimeToWait>
+python3 client.py <TimeToWait>
 ```
 #### Example:
 ```sh
-python client.py 100  # Introduces a 100ms delay
+python3 client.py 100  # Introduces a 100ms delay
 ```
 
 ### Plotting
 Generate the RTT plot from the RTT logs collected during the file transfer:
 ```sh
-python plotting.py <TimeToWait>
+python3 plotting.py <TimeToWait>
 ```
 
 #### Example:
 ```sh
-python plotting.py 100
+python3 plotting.py 100
 ```
 The plot will be saved in the plots directory as RTTs_100.png.
 
@@ -143,6 +154,9 @@ test_file_division: Tests the behavior of the divide_file_into_chunks function. 
 The server component is tested using the following unit test:
 
 test_handle_stream: Tests the behavior of the handle_stream function. It verifies that the function correctly processes data chunks received from the client.
+
+### Random Server
+The same as server with a random time to wait for each chunk.
 
 ### Plotting
 The plotting component is tested using the following unit test:

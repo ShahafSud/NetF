@@ -140,10 +140,8 @@ The plotting script (plotting.py) performs the following tasks:
 2. Plotting: Plots the RTT and Smoothed RTT values using Matplotlib.
 3. Save Plot: Saves the generated plot as a PNG file.
 
-## Conclusion
-This project showcases a basic implementation of a file transfer application using the QUIC protocol. It includes functionality to measure and plot RTT metrics, providing insights into the performance of the QUIC connection under various network conditions. This setup can be expanded and customized for more complex use cases and performance analyses.
-
 ## Unit Testing
+For the Unit tests to work, please change the PORT variables in "client.py" and "server.py" from sys.argv[1] to a valid port number(Number between 0 to 65535 - preferable numbers above 10000).
 
 ### Client
 The client component is tested using the following unit test:
@@ -162,3 +160,7 @@ The same as server with a random time to wait for each chunk.
 The plotting component is tested using the following unit test:
 
 test_plotting: Tests the behavior of the main function in generating a plot. It verifies that the main function correctly generates a plot with RTT data loaded from a mock CSV file.
+
+## Conclusion
+This project showcases a basic implementation of a file transfer application using the QUIC protocol. It includes functionality to measure and plot RTT metrics, providing insights into the performance of the QUIC connection under various network conditions. This setup can be expanded and customized for more complex use cases and performance analyses.
+
